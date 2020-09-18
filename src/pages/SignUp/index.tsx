@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { Image, 
+import React, { useRef, useCallback} from 'react';
+import { Alert, Image, 
         KeyboardAvoidingView, 
         Platform,  
         ScrollView,
@@ -8,9 +8,14 @@ import { Image,
 import { useNavigation } from '@react-navigation/native';
 import { Form } from '@unform/mobile';
 import { FormHandles } from '@unform/core';
+import * as Yup from 'yup';
+import api from '../../services/api';
 
 import Input from "../../components/input";
 import Button from "../../components/button";
+
+import getValidationsErrors from '../../utils/getValidationsErrors';
+
 import Icon from 'react-native-vector-icons/Feather';
 
 import logoImg from '../../assets/logo.png';
@@ -20,11 +25,61 @@ import { Container,
          BackToSignIn, 
          BackToSignInText } from './styles';
 
+interface SignUpFormData {
+    name: string;
+    email: string;
+    password: string;
+}
+
 const SignUp: React.FC = () => {
     const formRef = useRef<FormHandles>(null)
     const navigation = useNavigation();
     const emailInputRef = useRef<TextInput>(null)
     const passwordInputRef = useRef<TextInput>(null)
+
+    const handleSignUp = useCallback(
+        async (data: SignUpFormData) => {
+          try {
+            // eslint-disable-next-line no-unused-expressions
+            formRef.current?.setErrors({});
+            const schema = Yup.object().shape({
+              name: Yup.string().required('Nome obrigatório'),
+              email: Yup.string()
+                .required('Digite um email válido')
+                .email('Digite um email válido'),
+              password: Yup.string().required().min(6, 'Minimo de 6 digitos'),
+            });
+            await schema.validate(data, {
+              abortEarly: false,
+            });
+    
+            await api.post('/users', data);
+            
+            Alert.alert(
+                'Cadastro realizado com sucesso',
+                'Você já pode fazer login na aplicação.'
+            );
+
+            navigation.goBack();
+
+          } catch (err) {
+            if (err instanceof Yup.ValidationError) {
+              console.log(err);
+              const errors = getValidationsErrors(err);
+              // eslint-disable-next-line no-unused-expressions
+              formRef.current?.setErrors(errors);
+    
+              return;
+            }
+    
+            Alert.alert('Erro no Cadastro', 'Tente novamente');
+    
+            //
+          }
+        },
+        [navigation],
+      );
+
     return (
         <>
          <KeyboardAvoidingView
@@ -38,7 +93,7 @@ const SignUp: React.FC = () => {
          <Container>
                 <Image source={logoImg} />
                 <Title>Crie sua conta</Title>
-                <Form ref={formRef} onSubmit={(data) => {console.log(data)}}>
+                <Form ref={formRef} onSubmit={handleSignUp}>
                     <Input 
                         autoCapitalize="words"
                         name="name" 
@@ -73,7 +128,7 @@ const SignUp: React.FC = () => {
                         onSubmitEditing={()=> formRef.current.submitForm()}
                         />
                 </Form>
-                <Button onPress={()=> formRef.current.submitForm()}>Entrar</Button>
+                <Button onPress={()=> formRef.current.submitForm()}>Cadastrar</Button>
 
             </Container>
 

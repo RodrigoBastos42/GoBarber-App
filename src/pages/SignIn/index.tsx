@@ -3,14 +3,19 @@ import { Image,
         KeyboardAvoidingView, 
         Platform, 
         ScrollView,
-        TextInput
+        TextInput,
+        Alert
     } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Form } from '@unform/mobile';
 import { FormHandles } from '@unform/core';
+import { useAuth } from '../../hooks/AuthContext';
+import * as Yup from 'yup'
+
 
 import Input from "../../components/input";
 import Button from "../../components/button";
+import getValidationErrors from '../../utils/getValidationsErrors'
 import Icon from 'react-native-vector-icons/Feather';
 
 import logoImg from '../../assets/logo.png';
@@ -22,14 +27,54 @@ import { Container,
          CreateAccountButton, 
          CreateAccountButtonText } from './styles';
 
+interface SignInFormData {
+    email: string;
+    password: string
+}
+
 const SignIn: React.FC = () => {
     const formRef = useRef<FormHandles>(null);
     const passwordInputRef = useRef<TextInput>(null);
     const navigation = useNavigation();
+    const { signIn } = useAuth();;
 
-    const handleSignIn = useCallback((data: object)=>{
-        console.log(data)
-    }, []);
+    const handleSignIn = useCallback(
+        async (data: SignInFormData) => {
+          try {
+            // eslint-disable-next-line no-unused-expressions
+            formRef.current?.setErrors({});
+            const schema = Yup.object().shape({
+              email: Yup.string()
+                .required('Digite um email válido')
+                .email('Digite um email válido'),
+              password: Yup.string().required('Senha obrigatória'),
+            });
+            await schema.validate(data, {
+              abortEarly: false,
+            });
+           await signIn({
+              email: data.email,
+              password: data.password,
+            });
+    
+          } catch (err) {
+            if (err instanceof Yup.ValidationError) {
+              console.log(err);
+              const errors = getValidationErrors(err);
+              // eslint-disable-next-line no-unused-expressions
+              formRef.current?.setErrors(errors);
+    
+              return;
+            }
+    
+            Alert.alert(
+                'Erro na autenticação',
+                'Verifique as credenciais'
+            );
+          }
+        },
+        [signIn]
+      );
 
     return (
         <>
